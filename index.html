@@ -62,7 +62,6 @@
     <h2>モールス信号 → 日本語</h2>
     <textarea id="morseInput" placeholder="例: .- -.-- / ..-"></textarea>
     <button onclick="convertToJapanese()">変換</button>
-    <button onclick="playMorseSound()">音を再生</button>
     <div id="output">解読結果: </div>
 
     <h2>日本語 → モールス信号</h2>
@@ -118,39 +117,6 @@
             const translated = input.map(char => japaneseToMorse[char] || "?").join(" ");
             document.getElementById("outputMorse").textContent = "モールス信号: " + translated;
             addToHistory(`日本語「${input.join("")}」 → モールス信号「${translated}」`);
-        }
-
-        // モールス信号の音を再生
-        function playMorseSound() {
-            let input = document.getElementById("morseInput").value.trim();
-            input = normalizeMorse(input);
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            let time = audioCtx.currentTime;
-
-            input.split(" ").forEach(symbol => {
-                if (symbol === ".") {
-                    playBeep(audioCtx, time, 0.1); // 短音
-                    time += 0.2;
-                } else if (symbol === "-") {
-                    playBeep(audioCtx, time, 0.3); // 長音
-                    time += 0.4;
-                } else {
-                    time += 0.6; // スペース（単語区切り）
-                }
-            });
-        }
-
-        // ビープ音を鳴らす
-        function playBeep(audioCtx, startTime, duration) {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.type = "sine";
-            oscillator.frequency.setValueAtTime(700, audioCtx.currentTime);
-            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.start(startTime);
-            oscillator.stop(startTime + duration);
         }
 
         // 履歴を保存
