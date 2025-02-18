@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>和文モールス信号変換</title>
+    <style>
+        body { 
+            font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", "Helvetica", "Arial", sans-serif; 
+            text-align: center; 
+            margin: 20px; 
+            background-image: url('/Users/sherlock/Library/Mobile Documents/com~apple~CloudDocs/KAZU/Create./Morse/British.jpg'); /* ←ここを変更可能 */
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed;
+            color: white;
+        }
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(87, 87, 87, 0.351); /* 🔥 黒の半透明（0.0 = 完全透明, 1.0 = 不透明） */
+            z-index: -1; /* 背景を下に配置 */
+        }
+        textarea, input { 
+            width: 80%; 
+            margin: 10px 0; 
+            padding: 10px; 
+            font-size: 1.2em; 
+            border: 2px solid #354158; 
+            border-radius: 10px;
+        }
+        button { 
+            padding: 12px 20px; 
+            font-size: 1em; 
+            margin: 5px; 
+            cursor: pointer; 
+            border: none; 
+            background-color: #3c628b; 
+            color: white; 
+            border-radius: 50px; 
+            transition: 0.3s;
+        }
+        button:hover { 
+            background-color: #0056b3; 
+        }
+        #output, #outputMorse, #history { 
+            font-size: 1.5em; 
+            font-weight: bold; 
+            margin-top: 20px; 
+            color: #fffefe;
+        }
+        h1, h2 { 
+            color: #ffffff; 
+        }
+    </style>
+</head>
+<body>
+    <h1>和文モールス信号変換</h1>
+    
+    <h2>モールス信号 → 日本語</h2>
+    <textarea id="morseInput" placeholder="例: .- -.-- / ..-"></textarea>
+    <button onclick="convertToJapanese()">変換</button>
+    <button onclick="playMorseSound()">音を再生</button>
+    <div id="output">解読結果: </div>
+
+    <h2>日本語 → モールス信号</h2>
+    <input type="text" id="japaneseInput" placeholder="例: アイウエオ">
+    <button onclick="convertToMorse()">変換</button>
+    <div id="outputMorse">モールス信号: </div>
+
+    <h2>履歴</h2>
+    <div id="history">履歴なし</div>
+    <button onclick="clearHistory()">履歴をクリア</button>
+
+    <script>
+        // 和文モールス信号の対応表（半角 `.` `-` に統一）
+        const morseToJapanese = {
+            ".-": "イ", ".-.-": "ロ", "-...": "ハ", "-.-.": "ニ",
+            "-..": "ホ", ".": "ヘ", "..-..": "ト", "..-.": "チ",
+            "--.": "リ", "....": "ヌ", "-.-.-.": "ル", ".---": "ヲ",
+            "-.-": "ワ", ".-..": "カ", "--": "ヨ", "-.": "タ",
+            "---": "レ", "---.": "ソ", ".--.": "ツ", "--.-": "ネ",
+            ".-.": "ナ", "...": "ラ", "-": "ム", "..-": "ウ",
+            ".-..-": "ヰ", "..--": "ノ", ".-...": "オ", "...-": "ク",
+            ".--": "ヤ", "-..-": "マ", "-.-.": "ケ", "--..": "フ",
+            "----": "コ", "-.---": "エ", ".-.-.": "テ", "--.--": "ア",
+            "-.-.-": "サ", "-.-..": "キ", "-..--": "ユ", "-...-": "メ",
+            "..-.-": "ミ", "--.-.": "シ", "---.-": "ス", ".-.-.": "ン",
+            "--..-": "ヒ", "-..-.-": "モ", ".----.": "セ", "..": "゛", "..--.": "゜"
+        };
+
+        const japaneseToMorse = Object.fromEntries(
+            Object.entries(morseToJapanese).map(([morse, kana]) => [kana, morse])
+        );
+
+        // 全角「・」「－」を半角「.」「-」に変換
+        function normalizeMorse(input) {
+            return input.replace(/・/g, ".").replace(/－/g, "-");
+        }
+
+        // モールス信号 → 日本語変換
+        function convertToJapanese() {
+            let input = document.getElementById("morseInput").value.trim();
+            input = normalizeMorse(input); // 全角記号を半角記号に変換
+            const words = input.split(" / ");
+            const translated = words.map(word =>
+                word.split(" ").map(symbol => morseToJapanese[symbol] || "?").join("")
+            ).join(" ");
+            document.getElementById("output").textContent = "解読結果: " + translated;
+            addToHistory(`モールス信号「${input}」 → 日本語「${translated}」`);
+        }
+
+        // 日本語 → モールス信号変換
+        function convertToMorse() {
+            const input = document.getElementById("japaneseInput").value.trim().split("");
+            const translated = input.map(char => japaneseToMorse[char] || "?").join(" ");
+            document.getElementById("outputMorse").textContent = "モールス信号: " + translated;
+            addToHistory(`日本語「${input.join("")}」 → モールス信号「${translated}」`);
+        }
+
+        // モールス信号の音を再生
+        function playMorseSound() {
+            let input = document.getElementById("morseInput").value.trim();
+            input = normalizeMorse(input);
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            let time = audioCtx.currentTime;
+
+            input.split(" ").forEach(symbol => {
+                if (symbol === ".") {
+                    playBeep(audioCtx, time, 0.1); // 短音
+                    time += 0.2;
+                } else if (symbol === "-") {
+                    playBeep(audioCtx, time, 0.3); // 長音
+                    time += 0.4;
+                } else {
+                    time += 0.6; // スペース（単語区切り）
+                }
+            });
+        }
+
+        // ビープ音を鳴らす
+        function playBeep(audioCtx, startTime, duration) {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = "sine";
+            oscillator.frequency.setValueAtTime(700, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start(startTime);
+            oscillator.stop(startTime + duration);
+        }
+
+        // 履歴を保存
+        function addToHistory(text) {
+            const historyDiv = document.getElementById("history");
+            if (historyDiv.textContent === "履歴なし") {
+                historyDiv.textContent = "";
+            }
+            const entry = document.createElement("div");
+            entry.textContent = text;
+            historyDiv.appendChild(entry);
+        }
+
+        // 履歴をクリア
+        function clearHistory() {
+            document.getElementById("history").textContent = "履歴なし";
+        }
+    </script>
+</body>
+</html>
